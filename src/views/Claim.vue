@@ -20,17 +20,16 @@
                   </v-col>
                 </v-row>
               </v-card-text>
-              <v-divider></v-divider>
+              <v-divider v-if="state.assets.claimBalance > 0"></v-divider>
               <v-card-actions class="justify-center">
                 <v-btn
+                  v-if="state.assets.claimBalance > 0"
                   large
                   color="primary"
                   dark
                   width="80%"
                   @click="claim"
-                  :disabled="
-                    state.assets.claimBalance <= 0 && !state.assets.isClaim
-                  "
+                  :disabled="state.assets.claimBalance <= 0"
                 >
                   {{ $t("Claim") }}
                 </v-btn>
@@ -93,8 +92,9 @@ import Web3 from "web3";
 import Web3Modal from "web3modal";
 import WalletConnectProvider from "@walletconnect/web3-provider";
 import { getChainData } from "@/utils/utilities";
-import { getContract, formatAmount } from "@/utils/contract";
+import { getContract, formatAmountForString } from "@/utils/contract";
 import { CHAIN_ID, NETWORK_ID } from "@/constants";
+import AddressArray from "@/assets/address.json";
 
 const initStats = {
   fetching: false,
@@ -169,20 +169,29 @@ export default {
       const { web3, address } = this.state;
       this.state.fetching = true;
       try {
-        const ERC20Contract = await getContract("ERC20", web3);
-        const ERC20Balance = await ERC20Contract.balanceOf(address);
-        const ClaimContract = await getContract("Claim", web3);
-        const claimData = await ClaimContract.claimInfoByToken(address);
-
-        const assets = {
-          ERC20Balance: formatAmount(ERC20Balance),
-          claimBalance: formatAmount(claimData.claimAmount),
-          claimStatus: claimData.isClaim
-        };
+        // 检查账号是否在json内，如果内则进行合约查询，不在统一为0
+        let claimAmount = 0;
+        const searchResultArray = AddressArray.filter(item => item == address);
+        if (searchResultArray.length > 0) {
+          // 查询领取额度
+          const ClaimContract = await getContract("Claim", web3);
+          const claimData = await ClaimContract.methods
+            .claimInfoByToken(address)
+            .call();
+          // 如果是提取额度小于等于0，代表未提取，则要显示空投额度
+          if (claimData.claimAmount <= 0) {
+            const tempClaimAmount = await ClaimContract.methods
+              .claimAmount()
+              .call();
+            claimAmount = formatAmountForString(tempClaimAmount);
+          }
+        }
 
         const assetsState = {
           fetching: false,
-          assets: assets
+          assets: {
+            claimBalance: claimAmount
+          }
         };
         this.state = Object.assign(this.state, assetsState);
       } catch (error) {
@@ -257,21 +266,15 @@ export default {
       this.dialog = false;
       // 执行合约
       getContract("Claim", web3)
-        .then(instance => {
-          instance
-            .claim({ from: address })
-            .then(() => {
-              this.state.fetching = false;
-              this.getAccountAssets();
-            })
-            .catch(e => {
-              this.state.fetching = false;
-              console.info(e);
-            });
+        .methods.claim()
+        .send({ from: address })
+        .then(() => {
+          this.state.fetching = false;
+          this.getAccountAssets();
         })
         .catch(e => {
-          console.info(e);
           this.state.fetching = false;
+          console.info(e);
         });
     }
   },
