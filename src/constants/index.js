@@ -1,13 +1,9 @@
-import ERC20_CONTRACT from "./contracts/ERC20FixedSupply.json";
 import CLAIM_CONTRACT from "./contracts/Claim.json";
 
-export { ERC20_CONTRACT, CLAIM_CONTRACT };
-
-export const ERC20ContractAddress =
-  "0x7Ef5ac1FE8B6832EbAddEE1856E4A21E46843565";
+export { CLAIM_CONTRACT };
 
 export const ClaimContractAddress =
-  "0xd427267060A60D745A1C34fA869ebd335B3A5340";
+  "0xb14CA28Dee015Ba9c33A2c56850AE6e5B3115dCf";
 
 export const CHAIN_ID = process.env.VUE_APP_CHAIN_ID || 1;
 
